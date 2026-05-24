@@ -14,11 +14,13 @@ interface User {
   isActive: boolean;
   permissions: string[];
   createdAt: string;
+  companyId: string | null;
 }
 
 interface UsersClientProps {
   users: User[];
   currentUserId: string;
+  companies: Array<{ id: string; name: string; shortCode: string }>;
 }
 
 const ROLE_BADGE: Record<string, string> = {
@@ -34,7 +36,7 @@ const ALL_PERMISSIONS = [
   { key: "MANAGE_EMAIL",     label: "E-posta Ayarları",   desc: "E-posta entegrasyon ayarları" },
 ];
 
-export function UsersClient({ users: initialUsers, currentUserId }: UsersClientProps) {
+export function UsersClient({ users: initialUsers, currentUserId, companies }: UsersClientProps) {
   const [users, setUsers]               = useState(initialUsers);
   const [showCreate, setShowCreate]     = useState(false);
   const [editingUser, setEditingUser]   = useState<User | null>(null);
@@ -94,6 +96,7 @@ export function UsersClient({ users: initialUsers, currentUserId }: UsersClientP
       department: (fd.get("department") as string) || null,
       phone: (fd.get("phone") as string) || null,
       permissions: perms,
+      companyId: editCompanyId,
     };
     try {
       const res = await fetch(`/api/users/${editingUser.id}`, {
@@ -154,12 +157,14 @@ export function UsersClient({ users: initialUsers, currentUserId }: UsersClientP
     }
   }
 
-  // Edit modal — controlled role for conditional permissions UI
+  // Edit modal — controlled fields for conditional UI
   const [editRole, setEditRole] = useState("");
+  const [editCompanyId, setEditCompanyId] = useState<string | null>(null);
 
   function openEdit(user: User) {
     setEditingUser(user);
     setEditRole(user.role);
+    setEditCompanyId(user.companyId);
     setError("");
   }
 
@@ -344,6 +349,19 @@ export function UsersClient({ users: initialUsers, currentUserId }: UsersClientP
               <div className="grid grid-cols-2 gap-3">
                 <div><label className={labelCls}>Departman</label><input name="department" defaultValue={editingUser.department ?? ""} className={inputCls} /></div>
                 <div><label className={labelCls}>Telefon</label><input name="phone" defaultValue={editingUser.phone ?? ""} className={inputCls} /></div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-[#aaa] mb-1">Firma</label>
+                <select
+                  value={editCompanyId ?? ""}
+                  onChange={e => setEditCompanyId(e.target.value || null)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-white/[0.08] rounded-lg text-sm bg-white dark:bg-[#0d120f] text-gray-900 dark:text-[#e5e5e5] focus:outline-none focus:ring-2 focus:ring-[#b6ff5a]/50"
+                >
+                  <option value="">— Firma seçiniz —</option>
+                  {companies.map(c => (
+                    <option key={c.id} value={c.id}>{c.shortCode} — {c.name}</option>
+                  ))}
+                </select>
               </div>
               {error && <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-700 dark:text-red-400 text-sm px-4 py-3 rounded-lg">{error}</div>}
               <div className="flex gap-3 pt-1">
