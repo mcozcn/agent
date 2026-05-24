@@ -18,7 +18,10 @@ const companySchema = z.object({
 export async function GET() {
   try {
     const session = await auth();
-    if (!session?.user || session.user.role !== "ADMIN") {
+    if (!session?.user) {
+      return NextResponse.json({ error: "Oturum açılmamış" }, { status: 401 });
+    }
+    if (session.user.role !== "ADMIN") {
       return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 403 });
     }
 
@@ -39,7 +42,10 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const session = await auth();
-    if (!session?.user || session.user.role !== "ADMIN") {
+    if (!session?.user) {
+      return NextResponse.json({ error: "Oturum açılmamış" }, { status: 401 });
+    }
+    if (session.user.role !== "ADMIN") {
       return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 403 });
     }
 
@@ -57,7 +63,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Bu kısa kod zaten kullanılıyor" }, { status: 409 });
     }
 
-    const company = await prisma.company.create({ data: parsed.data });
+    let company;
+    try {
+      company = await prisma.company.create({ data: parsed.data });
+    } catch (createError) {
+      const prismaError = createError as { code?: string };
+      if (prismaError?.code === "P2002") {
+        return NextResponse.json({ error: "Bu kısa kod zaten kullanılıyor" }, { status: 409 });
+      }
+      throw createError;
+    }
     return NextResponse.json(company, { status: 201 });
   } catch (error) {
     console.error("[companies POST]", error);
