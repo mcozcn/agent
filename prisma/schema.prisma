@@ -71,9 +71,12 @@ model User {
   role       Role     @default(REQUESTER)
   department String?
   phone      String?
-  isActive   Boolean  @default(true)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  isActive    Boolean  @default(true)
+  permissions String[] @default([])
+  companyId   String?
+  company     Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   assignedTickets  Ticket[]         @relation("AssignedTo")
   requestedTickets Ticket[]         @relation("RequestedBy")
@@ -98,8 +101,13 @@ model Ticket {
   assignedToId String?
   assignedTo   User?   @relation("AssignedTo", fields: [assignedToId], references: [id])
 
-  emailMessageId String?
+  assetId String?
+  asset   Asset?  @relation(fields: [assetId], references: [id])
+
+  emailMessageId String?  @unique
   emailFrom      String?
+  companyId      String?
+  company        Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
 
   slaDeadline DateTime?
   slaBreach   Boolean   @default(false)
@@ -112,6 +120,12 @@ model Ticket {
   activities  TicketActivity[]
   comments    TicketComment[]
   slaBreaches SLABreach[]
+
+  @@index([requesterId])
+  @@index([assignedToId])
+  @@index([status])
+  @@index([slaBreach, slaDeadline])
+  @@index([companyId])
 }
 
 model TicketActivity {
@@ -125,6 +139,9 @@ model TicketActivity {
   newStatus TicketStatus?
   notes     String?      @db.Text
   createdAt DateTime     @default(now())
+
+  @@index([ticketId])
+  @@index([userId])
 }
 
 model TicketComment {
@@ -137,6 +154,9 @@ model TicketComment {
   isInternal Boolean  @default(false)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+
+  @@index([ticketId])
+  @@index([authorId])
 }
 
 model SLAConfig {
@@ -156,6 +176,10 @@ model SLABreach {
   assignedTo   User?    @relation(fields: [assignedToId], references: [id])
   breachType   String
   breachedAt   DateTime @default(now())
+
+  @@unique([ticketId, breachType])
+  @@index([ticketId])
+  @@index([assignedToId])
 }
 
 model Asset {
@@ -178,6 +202,7 @@ model Asset {
 
   assignments AssetAssignment[]
   services    AssetService[]
+  tickets     Ticket[]
 }
 
 model AssetAssignment {
@@ -190,6 +215,9 @@ model AssetAssignment {
   returnedAt DateTime?
   notes      String?
   isActive   Boolean   @default(true)
+
+  @@index([assetId])
+  @@index([userId])
 }
 
 model AssetService {
@@ -206,6 +234,28 @@ model AssetService {
   notes       String?
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
+
+  @@index([assetId])
+}
+
+model Company {
+  id           String   @id @default(cuid())
+  name         String
+  shortCode    String   @unique
+  emailDomains String[] @default([])
+  address      String?
+  phone        String?
+  website      String?
+  isActive     Boolean  @default(true)
+  contactName  String?
+  contactEmail String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  users   User[]
+  tickets Ticket[]
+
+  @@index([isActive])
 }
 
 model EmailConfig {
@@ -218,11 +268,12 @@ model EmailConfig {
   clientSecret String?
   mailbox      String?
   // IMAP alanları
-  imapHost     String?
-  imapPort     Int?
-  imapUser     String?
-  imapPassword String?
-  lastSyncAt   DateTime?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  imapHost       String?
+  imapPort       Int?
+  imapUser       String?
+  imapPassword   String?
+  allowedSenders String  @default("") // newline-separated list of emails or @domain.com patterns
+  lastSyncAt     DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }
