@@ -30,16 +30,35 @@ function normalizeToOutlookEmail(uid: number, envelope: Record<string, unknown>,
   };
 }
 
-export async function fetchUnreadImapEmails(config: ImapConfig): Promise<OutlookEmail[]> {
-  const client = new ImapFlow({
+function createClient(config: ImapConfig): ImapFlow {
+  return new ImapFlow({
     host: config.host,
     port: config.port,
     secure: true,
     auth: { user: config.user, pass: config.password },
     logger: false,
+    socketTimeout: 15000,
+    connectionTimeout: 15000,
   });
+}
 
-  await client.connect();
+export async function fetchUnreadImapEmails(config: ImapConfig): Promise<OutlookEmail[]> {
+  const client = createClient(config);
+
+  // Yakalanmayan socket hatalarının süreci çöktürmesini önle
+  client.on("error", () => { /* imap-client içinde yönetildi */ });
+
+  try {
+    await client.connect();
+  } catch (err) {
+    client.close();
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.toLowerCase().includes("auth") || msg.toLowerCase().includes("credentials")) {
+      throw new Error("IMAP kimlik doğrulama hatası: e-posta adresi veya App Password yanlış.");
+    }
+    throw new Error("IMAP bağlantı hatası: " + msg);
+  }
+
   const emails: OutlookEmail[] = [];
 
   try {
@@ -53,7 +72,6 @@ export async function fetchUnreadImapEmails(config: ImapConfig): Promise<Outlook
         if (msg.flags?.has("\\Seen")) continue;
 
         const source = msg.source?.toString() ?? "";
-        // Ham kaynaktan düz metni çıkar (headers'ı atla)
         const bodyText = source.split(/\r?\n\r?\n/).slice(1).join("\n").trim();
 
         emails.push(normalizeToOutlookEmail(
@@ -65,27 +83,29 @@ export async function fetchUnreadImapEmails(config: ImapConfig): Promise<Outlook
     } finally {
       lock.release();
     }
-  } finally {
     await client.logout();
+  } catch (err) {
+    client.close();
+    throw err;
   }
 
   return emails;
 }
 
 export async function markImapEmailAsRead(config: ImapConfig, messageId: string): Promise<void> {
-  // messageId formatı: "imap-{uid}"
   const uid = parseInt(messageId.replace("imap-", ""), 10);
   if (isNaN(uid)) return;
 
-  const client = new ImapFlow({
-    host: config.host,
-    port: config.port,
-    secure: true,
-    auth: { user: config.user, pass: config.password },
-    logger: false,
-  });
+  const client = createClient(config);
+  client.on("error", () => { /* imap-client içinde yönetildi */ });
 
-  await client.connect();
+  try {
+    await client.connect();
+  } catch (err) {
+    client.close();
+    throw new Error("IMAP bağlantı hatası: " + (err instanceof Error ? err.message : String(err)));
+  }
+
   try {
     const lock = await client.getMailboxLock("INBOX");
     try {
@@ -93,7 +113,9 @@ export async function markImapEmailAsRead(config: ImapConfig, messageId: string)
     } finally {
       lock.release();
     }
-  } finally {
     await client.logout();
+  } catch (err) {
+    client.close();
+    throw err;
   }
 }
