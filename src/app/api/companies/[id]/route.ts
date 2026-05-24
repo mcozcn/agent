@@ -54,6 +54,10 @@ export async function PATCH(
     const company = await prisma.company.update({ where: { id }, data: parsed.data });
     return NextResponse.json(company);
   } catch (error) {
+    const prismaError = error as { code?: string };
+    if (prismaError?.code === "P2002") {
+      return NextResponse.json({ error: "Bu kısa kod zaten kullanılıyor" }, { status: 409 });
+    }
     console.error("[companies PATCH]", error);
     return NextResponse.json({ error: "Sunucu hatası" }, { status: 500 });
   }
