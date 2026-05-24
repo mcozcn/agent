@@ -27,7 +27,6 @@ export default async function CompaniesSettingsPage() {
           initialCompanies={companies.map(c => ({
             ...c,
             createdAt: c.createdAt.toISOString(),
-            updatedAt: c.updatedAt.toISOString(),
             userCount: c._count.users,
             ticketCount: c._count.tickets,
           }))}

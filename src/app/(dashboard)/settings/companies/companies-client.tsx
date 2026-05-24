@@ -102,7 +102,11 @@ export function CompaniesClient({ initialCompanies }: CompaniesClientProps) {
 
       const saved = data as Company;
       if (editingId) {
-        setCompanies(prev => prev.map(c => c.id === editingId ? { ...c, ...saved } : c));
+        setCompanies(prev => prev.map(c =>
+          c.id === editingId
+            ? { ...c, ...saved, userCount: c.userCount, ticketCount: c.ticketCount }
+            : c
+        ));
       } else {
         setCompanies(prev => [{ ...saved, userCount: 0, ticketCount: 0 }, ...prev]);
       }
