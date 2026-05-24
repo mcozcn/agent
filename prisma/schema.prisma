@@ -254,8 +254,6 @@ model Company {
 
   users   User[]
   tickets Ticket[]
-
-  @@index([isActive])
 }
 
 model EmailConfig {
