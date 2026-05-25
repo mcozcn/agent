@@ -11,6 +11,8 @@ import {
   Wrench,
   Ticket,
   ArrowLeft,
+  PackagePlus,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -21,7 +23,7 @@ import {
   PRIORITY_LABELS,
   PRIORITY_COLORS,
 } from "@/lib/utils";
-import { returnAsset } from "@/lib/actions/asset.actions";
+import { returnAsset, bulkAssignAssets } from "@/lib/actions/asset.actions";
 import type { TicketStatus, Priority, AssetCategory } from "@/types";
 
 interface EmployeeProp {
@@ -110,6 +112,18 @@ export function CariClient({
   const [activeTab, setActiveTab] = useState<TabKey>("active");
   const [returning, setReturning] = useState<string | null>(null);
 
+  // Toplu zimmet state
+  const [showBulkModal, setShowBulkModal] = useState(false);
+  const [bulkStep, setBulkStep] = useState<"select" | "confirm">("select");
+  const [availableActiveAssets, setAvailableActiveAssets] = useState<
+    Array<{ id: string; assetCode: string; name: string; category: string; brand: string | null; location: string | null }>
+  >([]);
+  const [loadingAssets, setLoadingAssets] = useState(false);
+  const [bulkSelectedIds, setBulkSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkNote, setBulkNote] = useState("");
+  const [bulkSubmitting, setBulkSubmitting] = useState(false);
+  const [bulkError, setBulkError] = useState("");
+
   const activeAssignments = assignments.filter((a) => a.isActive);
   const historyAssignments = assignments;
 
@@ -131,6 +145,49 @@ export function CariClient({
       await returnAsset(assetId, assignmentId);
     } finally {
       setReturning(null);
+    }
+  }
+
+  async function openBulkModal() {
+    setShowBulkModal(true);
+    setBulkStep("select");
+    setBulkSelectedIds(new Set());
+    setBulkNote("");
+    setBulkError("");
+    setLoadingAssets(true);
+    try {
+      const res = await fetch("/api/assets?status=ACTIVE");
+      const data = await res.json() as Array<{
+        id: string; assetCode: string; name: string; category: string;
+        brand: string | null; location: string | null;
+      }>;
+      setAvailableActiveAssets(data);
+    } finally {
+      setLoadingAssets(false);
+    }
+  }
+
+  function toggleBulkSelect(id: string) {
+    setBulkSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function handleBulkAssign() {
+    setBulkSubmitting(true);
+    setBulkError("");
+    try {
+      await bulkAssignAssets(Array.from(bulkSelectedIds), employee.id, bulkNote || undefined);
+      setShowBulkModal(false);
+      setBulkSelectedIds(new Set());
+    } catch (e) {
+      setBulkError(e instanceof Error ? e.message : "Bir hata oluştu");
+      setBulkStep("select");
+    } finally {
+      setBulkSubmitting(false);
     }
   }
 
@@ -258,6 +315,16 @@ export function CariClient({
           {/* Aktif Zimmetler */}
           {activeTab === "active" && (
             <div>
+              {/* Toplu Zimmet Butonu */}
+              <div className="flex justify-end mb-3">
+                <button
+                  onClick={openBulkModal}
+                  className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium bg-[#b6ff5a] text-black rounded-lg hover:bg-[#9ee040] transition-colors"
+                >
+                  <PackagePlus size={14} />
+                  Toplu Zimmet Et
+                </button>
+              </div>
               {activeAssignments.length === 0 ? (
                 <p className="text-center py-8 text-gray-400 dark:text-[#444] text-sm">
                   Aktif zimmet yok.
@@ -535,6 +602,146 @@ export function CariClient({
           </span>
         </Link>
       </div>
+
+      {/* Toplu Zimmet Modal */}
+      {showBulkModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-[#111813] rounded-2xl shadow-xl w-full max-w-lg p-6 border border-gray-200 dark:border-white/[0.06] max-h-[90vh] flex flex-col">
+            {bulkStep === "select" ? (
+              <>
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="text-base font-semibold text-gray-900 dark:text-[#e5e5e5]">
+                      Toplu Zimmet Et
+                    </h3>
+                    <p className="text-xs text-gray-500 dark:text-[#666]">
+                      {employee.lastName}, {employee.firstName}&#39;a zimmetlenecek demirbaşları seçin
+                    </p>
+                  </div>
+                  <button onClick={() => setShowBulkModal(false)} className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg">
+                    <X size={16} />
+                  </button>
+                </div>
+
+                {bulkError && (
+                  <div className="mb-3 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-700 dark:text-red-400 text-sm px-3 py-2 rounded-lg">
+                    {bulkError}
+                  </div>
+                )}
+
+                {loadingAssets ? (
+                  <div className="flex-1 flex items-center justify-center py-12">
+                    <p className="text-sm text-gray-400 dark:text-[#555]">Demirbaşlar yükleniyor...</p>
+                  </div>
+                ) : availableActiveAssets.length === 0 ? (
+                  <div className="flex-1 flex items-center justify-center py-12">
+                    <p className="text-sm text-gray-400 dark:text-[#555]">Zimmetlenebilir aktif demirbaş bulunamadı.</p>
+                  </div>
+                ) : (
+                  <div className="flex-1 overflow-y-auto space-y-1 mb-4 min-h-0">
+                    {availableActiveAssets.map(a => (
+                      <label
+                        key={a.id}
+                        className={cn(
+                          "flex items-center gap-3 p-2.5 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.03] transition-colors",
+                          bulkSelectedIds.has(a.id) && "bg-[#b6ff5a]/5 dark:bg-[#b6ff5a]/5"
+                        )}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={bulkSelectedIds.has(a.id)}
+                          onChange={() => toggleBulkSelect(a.id)}
+                          className="rounded shrink-0"
+                        />
+                        <div className="min-w-0">
+                          <div className="text-xs font-mono text-gray-400 dark:text-[#555]">{a.assetCode}</div>
+                          <div className="text-sm font-medium text-gray-900 dark:text-[#e5e5e5] truncate">{a.name}</div>
+                          {(a.brand || a.location) && (
+                            <div className="text-xs text-gray-400 dark:text-[#555]">
+                              {a.brand}{a.brand && a.location && " · "}{a.location}
+                            </div>
+                          )}
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-[#aaa] mb-1">
+                    Not (opsiyonel)
+                  </label>
+                  <textarea
+                    value={bulkNote}
+                    onChange={e => setBulkNote(e.target.value)}
+                    rows={2}
+                    placeholder="Tüm zimmetlere uygulanacak not..."
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-white/[0.08] rounded-lg text-sm bg-white dark:bg-[#0d120f] text-gray-900 dark:text-[#e5e5e5] focus:outline-none focus:ring-2 focus:ring-[#b6ff5a]/50 resize-none"
+                  />
+                </div>
+
+                <div className="flex gap-3 mt-4">
+                  <button
+                    onClick={() => setBulkStep("confirm")}
+                    disabled={bulkSelectedIds.size === 0}
+                    className="flex-1 px-4 py-2 bg-[#b6ff5a] text-black rounded-lg text-sm font-medium hover:bg-[#9ee040] disabled:opacity-50 transition-colors"
+                  >
+                    İleri ({bulkSelectedIds.size} seçildi)
+                  </button>
+                  <button
+                    onClick={() => setShowBulkModal(false)}
+                    className="flex-1 px-4 py-2 border border-gray-300 dark:border-white/[0.08] text-gray-700 dark:text-[#aaa] rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-white/[0.03] transition-colors"
+                  >
+                    İptal
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h3 className="text-base font-semibold text-gray-900 dark:text-[#e5e5e5] mb-1">
+                  Zimmet Onayı
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-[#aaa] mb-4">
+                  <span className="font-semibold text-gray-900 dark:text-[#e5e5e5]">{bulkSelectedIds.size} demirbaş</span>,{" "}
+                  <span className="font-semibold text-[#3d6b10] dark:text-[#b6ff5a]">{employee.lastName}, {employee.firstName}</span>&#39;a zimmetlenecek.
+                </p>
+
+                <div className="bg-gray-50 dark:bg-white/[0.03] rounded-lg p-3 max-h-48 overflow-y-auto space-y-1 mb-4">
+                  {availableActiveAssets.filter(a => bulkSelectedIds.has(a.id)).map(a => (
+                    <div key={a.id} className="flex items-center gap-2 text-sm">
+                      <span className="text-xs font-mono text-gray-400 dark:text-[#555] w-20 shrink-0">{a.assetCode}</span>
+                      <span className="text-gray-700 dark:text-[#ccc] truncate">{a.name}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {bulkNote && (
+                  <p className="text-xs text-gray-500 dark:text-[#666] mb-4 bg-gray-50 dark:bg-white/[0.03] rounded-lg px-3 py-2">
+                    Not: {bulkNote}
+                  </p>
+                )}
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleBulkAssign}
+                    disabled={bulkSubmitting}
+                    className="flex-1 px-4 py-2 bg-[#b6ff5a] text-black rounded-lg text-sm font-medium hover:bg-[#9ee040] disabled:opacity-50 transition-colors"
+                  >
+                    {bulkSubmitting ? "Zimmetleniyor..." : "Zimmet Et"}
+                  </button>
+                  <button
+                    onClick={() => setBulkStep("select")}
+                    disabled={bulkSubmitting}
+                    className="flex-1 px-4 py-2 border border-gray-300 dark:border-white/[0.08] text-gray-700 dark:text-[#aaa] rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-white/[0.03] transition-colors"
+                  >
+                    ← Geri
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
