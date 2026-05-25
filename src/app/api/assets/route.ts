@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { z } from "zod";
+
+const AssetStatusEnum = z.enum(["ACTIVE", "ASSIGNED", "IN_SERVICE", "SCRAP", "RETIRED"]);
+const querySchema = z.object({
+  status: AssetStatusEnum.optional(),
+});
 
 export async function GET(req: Request) {
   try {
@@ -14,7 +20,11 @@ export async function GET(req: Request) {
     }
 
     const { searchParams } = new URL(req.url);
-    const status = searchParams.get("status");
+    const parsed = querySchema.safeParse({ status: searchParams.get("status") ?? undefined });
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Geçersiz sorgu parametresi" }, { status: 400 });
+    }
+    const { status } = parsed.data;
 
     const where: Record<string, unknown> = {};
     if (status) where.status = status;
