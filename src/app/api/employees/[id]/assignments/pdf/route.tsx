@@ -3,6 +3,8 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import * as ReactPDF from "@react-pdf/renderer";
 import { ZimmetTutanagi } from "@/lib/pdf-templates/zimmet-tutanagi";
+import { NextResponse } from "next/server";
+import { z } from "zod";
 
 export async function GET(
   _req: Request,
@@ -11,14 +13,20 @@ export async function GET(
   try {
     const session = await auth();
     if (!session?.user) {
-      return new Response(JSON.stringify({ error: "Oturum açılmamış" }), { status: 401 });
+      return NextResponse.json({ error: "Oturum açılmamış" }, { status: 401 });
     }
     const role = session.user.role as string;
     if (role !== "ADMIN" && role !== "IT_STAFF") {
-      return new Response(JSON.stringify({ error: "Yetkisiz erişim" }), { status: 403 });
+      return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 403 });
     }
 
     const { id } = await params;
+
+    const idSchema = z.string().cuid();
+    const parsed = idSchema.safeParse(id);
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Geçersiz ID" }, { status: 400 });
+    }
 
     const employee = await prisma.employee.findUnique({
       where: { id },
@@ -44,11 +52,11 @@ export async function GET(
     });
 
     if (!employee) {
-      return new Response(JSON.stringify({ error: "Personel bulunamadı" }), { status: 404 });
+      return NextResponse.json({ error: "Personel bulunamadı" }, { status: 404 });
     }
 
     if (employee.assignments.length === 0) {
-      return new Response(JSON.stringify({ error: "Aktif zimmet bulunamadı" }), { status: 404 });
+      return NextResponse.json({ error: "Aktif zimmet bulunamadı" }, { status: 404 });
     }
 
     const now = new Date().toISOString();
@@ -78,8 +86,9 @@ export async function GET(
       <ZimmetTutanagi data={pdfData} /> as React.ReactElement<ReactPDF.DocumentProps>
     );
 
+    const safeName = employee.lastName.replace(/[^a-zA-Z0-9À-ɏ]/g, "_");
     const date = new Date().toLocaleDateString("tr-TR").replace(/\./g, "-");
-    const filename = `zimmet-${employee.lastName}-${date}.pdf`;
+    const filename = `zimmet-${safeName}-${date}.pdf`;
 
     return new Response(new Uint8Array(buffer), {
       headers: {
@@ -89,6 +98,6 @@ export async function GET(
     });
   } catch (error) {
     console.error("[employee assignments pdf GET]", error);
-    return new Response(JSON.stringify({ error: "Sunucu hatası" }), { status: 500 });
+    return NextResponse.json({ error: "Sunucu hatası" }, { status: 500 });
   }
 }
