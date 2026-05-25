@@ -12,7 +12,7 @@ import {
   isSlaBreached,
 } from "@/lib/utils";
 import { bulkAssignAssets } from "@/lib/actions/asset.actions";
-import { CheckSquare, X, Users } from "lucide-react";
+import { CheckSquare, X, Users, Check, FileDown } from "lucide-react";
 
 interface AssetRow {
   id: string;
@@ -36,7 +36,7 @@ interface AssetsTableClientProps {
   currentUserRole: string;
 }
 
-type ModalStep = "form" | "confirm";
+type ModalStep = "form" | "confirm" | "success";
 
 function differenceInDays(date1: Date, date2: Date): number {
   return Math.floor((date1.getTime() - date2.getTime()) / (1000 * 60 * 60 * 24));
@@ -105,6 +105,12 @@ export function AssetsTableClient({
     setShowModal(true);
   }
 
+  function closeModal() {
+    setShowModal(false);
+    setSelectedIds(new Set());
+    setModalStep("form");
+  }
+
   async function fetchEmployees(companyId: string) {
     if (!companyId) {
       setAvailableEmployees([]);
@@ -146,8 +152,7 @@ export function AssetsTableClient({
     setError("");
     try {
       await bulkAssignAssets(Array.from(selectedIds), selectedEmployeeId, note || undefined);
-      setShowModal(false);
-      setSelectedIds(new Set());
+      setModalStep("success");
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Bir hata oluştu");
@@ -438,7 +443,7 @@ export function AssetsTableClient({
                   </button>
                 </div>
               </>
-            ) : (
+            ) : modalStep === "confirm" ? (
               <>
                 <h3 className="text-base font-semibold text-gray-900 dark:text-[#e5e5e5] mb-1">
                   Zimmet Onayı
@@ -485,6 +490,44 @@ export function AssetsTableClient({
                     className="flex-1 px-4 py-2 border border-gray-300 dark:border-white/[0.08] text-gray-700 dark:text-[#aaa] rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-white/[0.03] transition-colors"
                   >
                     ← Geri
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="text-center py-4">
+                  <div className="w-12 h-12 rounded-full bg-[#b6ff5a]/20 dark:bg-[#b6ff5a]/10 flex items-center justify-center mx-auto mb-3">
+                    <Check size={24} className="text-[#3d6b10] dark:text-[#b6ff5a]" />
+                  </div>
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-[#e5e5e5] mb-1">
+                    Zimmet Tamamlandı
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-[#666]">
+                    <span className="font-semibold text-gray-900 dark:text-[#e5e5e5]">
+                      {selectedIds.size} demirbaş
+                    </span>
+                    {", "}
+                    <span className="font-semibold text-[#3d6b10] dark:text-[#b6ff5a]">
+                      {selectedEmployeeName}
+                    </span>
+                    {"'a zimmetlendi."}
+                  </p>
+                </div>
+                <div className="flex gap-3 mt-6">
+                  <a
+                    href={`/api/employees/${selectedEmployeeId}/assignments/pdf`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-[#b6ff5a] text-black rounded-lg text-sm font-medium hover:bg-[#9ee040] transition-colors"
+                  >
+                    <FileDown size={14} />
+                    PDF İndir
+                  </a>
+                  <button
+                    onClick={closeModal}
+                    className="flex-1 px-4 py-2 border border-gray-300 dark:border-white/[0.08] text-gray-700 dark:text-[#aaa] rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-white/[0.03] transition-colors"
+                  >
+                    Kapat
                   </button>
                 </div>
               </>
