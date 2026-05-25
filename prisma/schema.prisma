@@ -82,7 +82,6 @@ model User {
   requestedTickets Ticket[]         @relation("RequestedBy")
   ticketActivities TicketActivity[]
   ticketComments   TicketComment[]
-  assetAssignments AssetAssignment[]
   slaBreaches      SLABreach[]
 }
 
@@ -206,18 +205,18 @@ model Asset {
 }
 
 model AssetAssignment {
-  id         String    @id @default(cuid())
-  assetId    String
-  asset      Asset     @relation(fields: [assetId], references: [id], onDelete: Cascade)
-  userId     String
-  user       User      @relation(fields: [userId], references: [id])
-  assignedAt DateTime  @default(now())
-  returnedAt DateTime?
-  notes      String?
-  isActive   Boolean   @default(true)
+  id           String    @id @default(cuid())
+  assetId      String
+  asset        Asset     @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  employeeId   String
+  employee     Employee  @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  assignedAt   DateTime  @default(now())
+  returnedAt   DateTime?
+  notes        String?
+  isActive     Boolean   @default(true)
 
   @@index([assetId])
-  @@index([userId])
+  @@index([employeeId])
 }
 
 model AssetService {
@@ -238,6 +237,27 @@ model AssetService {
   @@index([assetId])
 }
 
+model Employee {
+  id           String   @id @default(cuid())
+  firstName    String
+  lastName     String
+  email        String
+  phone        String?
+  department   String?
+  title        String?
+  companyId    String
+  company      Company  @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  assignments  AssetAssignment[]
+
+  @@unique([email, companyId])
+  @@index([companyId])
+  @@index([isActive])
+}
+
 model Company {
   id           String   @id @default(cuid())
   name         String
@@ -252,8 +272,9 @@ model Company {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  users   User[]
-  tickets Ticket[]
+  users      User[]
+  employees  Employee[]
+  tickets    Ticket[]
 }
 
 model EmailConfig {
