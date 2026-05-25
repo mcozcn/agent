@@ -283,17 +283,27 @@ export async function bulkAssignAssets(
   const role = session.user.role as string;
   if (role !== "ADMIN" && role !== "IT_STAFF") throw new Error("Forbidden");
 
-  if (assetIds.length === 0) throw new Error("En az bir demirbaş seçilmeli");
+  const schema = z.object({
+    assetIds: z.array(z.string().cuid()).min(1, "En az bir demirbaş seçilmeli"),
+    employeeId: z.string().cuid(),
+  });
+  const parsed = schema.safeParse({ assetIds, employeeId });
+  if (!parsed.success) throw new Error(parsed.error.errors[0].message);
 
   const assets = await prisma.asset.findMany({
     where: { id: { in: assetIds } },
     select: { id: true, status: true },
   });
 
+  if (assets.length !== assetIds.length) throw new Error("Bazı demirbaşlar bulunamadı");
+
   const nonActive = assets.filter((a) => a.status !== "ACTIVE");
   if (nonActive.length > 0) {
     throw new Error("Sadece ACTIVE statüsündeki demirbaşlar zimmetlenebilir");
   }
+
+  const employee = await prisma.employee.findUnique({ where: { id: employeeId }, select: { id: true } });
+  if (!employee) throw new Error("Çalışan bulunamadı");
 
   const now = new Date();
 
