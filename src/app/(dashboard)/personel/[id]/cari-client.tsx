@@ -157,11 +157,14 @@ export function CariClient({
     setLoadingAssets(true);
     try {
       const res = await fetch("/api/assets?status=ACTIVE");
+      if (!res.ok) throw new Error(`Demirbaşlar yüklenemedi (${res.status})`);
       const data = await res.json() as Array<{
         id: string; assetCode: string; name: string; category: string;
         brand: string | null; location: string | null;
       }>;
       setAvailableActiveAssets(data);
+    } catch (e) {
+      setBulkError(e instanceof Error ? e.message : "Demirbaşlar yüklenemedi");
     } finally {
       setLoadingAssets(false);
     }
