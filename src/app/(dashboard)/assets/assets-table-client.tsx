@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import {
   cn,
@@ -235,19 +236,21 @@ export function AssetsTableClient({
                       </td>
                     )}
                     <td className="px-4 py-3">
-                      <a href={`/assets/${asset.id}`} className="block">
-                        <div className="text-xs text-gray-400 dark:text-slate-600 font-mono">
-                          {asset.assetCode}
-                        </div>
-                        <div className="text-sm font-medium text-gray-900 dark:text-slate-200 hover:text-[#b6ff5a]">
-                          {asset.name}
-                        </div>
-                        {asset.brand && (
-                          <div className="text-xs text-gray-400 dark:text-slate-600">
-                            {asset.brand} {asset.model}
+                      <Link href={`/assets/${asset.id}`}>
+                        <div className="block">
+                          <div className="text-xs text-gray-400 dark:text-slate-600 font-mono">
+                            {asset.assetCode}
                           </div>
-                        )}
-                      </a>
+                          <div className="text-sm font-medium text-gray-900 dark:text-slate-200 hover:text-[#b6ff5a]">
+                            {asset.name}
+                          </div>
+                          {asset.brand && (
+                            <div className="text-xs text-gray-400 dark:text-slate-600">
+                              {asset.brand} {asset.model}
+                            </div>
+                          )}
+                        </div>
+                      </Link>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600 dark:text-slate-400">
                       {ASSET_CATEGORY_LABELS[asset.category as keyof typeof ASSET_CATEGORY_LABELS]}
