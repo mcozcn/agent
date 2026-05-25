@@ -271,3 +271,49 @@ export async function deleteAsset(assetId: string) {
   revalidatePath("/assets");
   redirect("/assets");
 }
+
+export async function bulkAssignAssets(
+  assetIds: string[],
+  employeeId: string,
+  note?: string
+): Promise<void> {
+  const session = await auth();
+  if (!session?.user) throw new Error("Unauthorized");
+
+  const role = session.user.role as string;
+  if (role !== "ADMIN" && role !== "IT_STAFF") throw new Error("Forbidden");
+
+  if (assetIds.length === 0) throw new Error("En az bir demirbaş seçilmeli");
+
+  const assets = await prisma.asset.findMany({
+    where: { id: { in: assetIds } },
+    select: { id: true, status: true },
+  });
+
+  const nonActive = assets.filter((a) => a.status !== "ACTIVE");
+  if (nonActive.length > 0) {
+    throw new Error("Sadece ACTIVE statüsündeki demirbaşlar zimmetlenebilir");
+  }
+
+  const now = new Date();
+
+  await prisma.$transaction([
+    prisma.assetAssignment.updateMany({
+      where: { assetId: { in: assetIds }, isActive: true },
+      data: { isActive: false, returnedAt: now },
+    }),
+    ...assetIds.map((assetId) =>
+      prisma.assetAssignment.create({
+        data: { assetId, employeeId, notes: note ?? null, isActive: true },
+      })
+    ),
+    prisma.asset.updateMany({
+      where: { id: { in: assetIds } },
+      data: { status: "ASSIGNED" },
+    }),
+  ]);
+
+  revalidatePath("/assets");
+  revalidatePath("/personel");
+  revalidatePath(`/personel/${employeeId}`);
+}
