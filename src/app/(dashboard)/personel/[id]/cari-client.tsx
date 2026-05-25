@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Building2,
   Mail,
@@ -109,6 +110,7 @@ export function CariClient({
   services,
   tickets,
 }: CariClientProps) {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabKey>("active");
   const [returning, setReturning] = useState<string | null>(null);
 
@@ -186,6 +188,7 @@ export function CariClient({
       await bulkAssignAssets(Array.from(bulkSelectedIds), employee.id, bulkNote || undefined);
       setShowBulkModal(false);
       setBulkSelectedIds(new Set());
+      router.refresh();
     } catch (e) {
       setBulkError(e instanceof Error ? e.message : "Bir hata oluştu");
       setBulkStep("select");

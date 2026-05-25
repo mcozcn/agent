@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   cn,
   formatDateShort,
@@ -48,6 +49,7 @@ export function AssetsTableClient({
   currentUserRole,
 }: AssetsTableClientProps) {
   const canAssign = currentUserRole === "ADMIN" || currentUserRole === "IT_STAFF";
+  const router = useRouter();
 
   // Checkbox selection
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -111,6 +113,11 @@ export function AssetsTableClient({
     setLoadingEmployees(true);
     try {
       const res = await fetch(`/api/employees?companyId=${companyId}&isActive=true`);
+      if (!res.ok) {
+        setError("Çalışanlar yüklenemedi");
+        setAvailableEmployees([]);
+        return;
+      }
       const data = (await res.json()) as Array<{
         id: string;
         firstName: string;
@@ -141,6 +148,7 @@ export function AssetsTableClient({
       await bulkAssignAssets(Array.from(selectedIds), selectedEmployeeId, note || undefined);
       setShowModal(false);
       setSelectedIds(new Set());
+      router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Bir hata oluştu");
       setModalStep("form");

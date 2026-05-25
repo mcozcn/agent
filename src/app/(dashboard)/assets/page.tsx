@@ -46,7 +46,7 @@ export default async function AssetsPage({
         },
       },
     }),
-    prisma.asset.count(),
+    prisma.asset.count({ where }),
     prisma.company.findMany({
       where: { isActive: true },
       orderBy: { name: "asc" },
