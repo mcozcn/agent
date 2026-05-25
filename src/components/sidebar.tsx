@@ -9,7 +9,7 @@ import { motion, useMotionValue, useSpring, useTransform, type MotionValue } fro
 import {
   LayoutDashboard, Ticket, Package,
   BarChart3, Settings, LogOut, Zap, Sun, Moon,
-  Users, Clock, Mail, ChevronDown, Building2,
+  Users, Users2, Clock, Mail, ChevronDown, Building2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +24,7 @@ const mainNav = [
   { href: "/tickets",    label: "Talepler",     icon: Ticket,          roles: ["ADMIN", "IT_STAFF"] },
   { href: "/my-tickets", label: "Taleplerim",   icon: Ticket,          roles: ["REQUESTER"] },
   { href: "/assets",     label: "Demirbaşlar",  icon: Package,         roles: ["ADMIN", "IT_STAFF"] },
+  { href: "/personel",   label: "Personel",     icon: Users2,          roles: ["ADMIN", "IT_STAFF"] },
 ];
 
 const otherNav = [
