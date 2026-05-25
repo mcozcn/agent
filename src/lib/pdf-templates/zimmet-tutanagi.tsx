@@ -1,4 +1,3 @@
-import React from "react";
 import { Document, Page, View, Text, StyleSheet } from "@react-pdf/renderer";
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -180,7 +179,7 @@ export function ZimmetTutanagi({ data }: { data: ZimmetPdfData }) {
           <Text style={[s.thCell, s.colSerial]}>Seri No</Text>
         </View>
         {assignments.map((a, i) => (
-          <View key={a.assetCode} style={s.tableRow}>
+          <View key={`${a.assetCode}-${i}`} style={s.tableRow}>
             <Text style={[s.tdCell, s.colNo]}>{i + 1}</Text>
             <Text style={[s.tdCell, s.colCode]}>{a.assetCode}</Text>
             <Text style={[s.tdCell, s.colName]}>{a.name}</Text>
