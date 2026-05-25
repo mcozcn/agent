@@ -14,6 +14,9 @@ import {
   ArrowLeft,
   PackagePlus,
   X,
+  Check,
+  FileDown,
+  FileText,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -116,7 +119,7 @@ export function CariClient({
 
   // Toplu zimmet state
   const [showBulkModal, setShowBulkModal] = useState(false);
-  const [bulkStep, setBulkStep] = useState<"select" | "confirm">("select");
+  const [bulkStep, setBulkStep] = useState<"select" | "confirm" | "success">("select");
   const [availableActiveAssets, setAvailableActiveAssets] = useState<
     Array<{ id: string; assetCode: string; name: string; category: string; brand: string | null; location: string | null }>
   >([]);
@@ -172,6 +175,12 @@ export function CariClient({
     }
   }
 
+  function closeBulkModal() {
+    setShowBulkModal(false);
+    setBulkSelectedIds(new Set());
+    setBulkStep("select");
+  }
+
   function toggleBulkSelect(id: string) {
     setBulkSelectedIds(prev => {
       const next = new Set(prev);
@@ -186,8 +195,7 @@ export function CariClient({
     setBulkError("");
     try {
       await bulkAssignAssets(Array.from(bulkSelectedIds), employee.id, bulkNote || undefined);
-      setShowBulkModal(false);
-      setBulkSelectedIds(new Set());
+      setBulkStep("success");
       router.refresh();
     } catch (e) {
       setBulkError(e instanceof Error ? e.message : "Bir hata oluştu");
@@ -322,7 +330,16 @@ export function CariClient({
           {activeTab === "active" && (
             <div>
               {/* Toplu Zimmet Butonu */}
-              <div className="flex justify-end mb-3">
+              <div className="flex justify-end gap-2 mb-3">
+                <a
+                  href={`/api/employees/${employee.id}/assignments/pdf`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium border border-gray-300 dark:border-white/[0.08] text-gray-700 dark:text-[#aaa] rounded-lg hover:bg-gray-50 dark:hover:bg-white/[0.03] transition-colors"
+                >
+                  <FileDown size={14} />
+                  PDF Al
+                </a>
                 <button
                   onClick={openBulkModal}
                   className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium bg-[#b6ff5a] text-black rounded-lg hover:bg-[#9ee040] transition-colors"
@@ -411,7 +428,8 @@ export function CariClient({
                       <th className="pb-2 pr-4">Zimmet</th>
                       <th className="pb-2 pr-4">İade</th>
                       <th className="pb-2 pr-4">Süre</th>
-                      <th className="pb-2">Notlar</th>
+                      <th className="pb-2 pr-4">Notlar</th>
+                      <th className="pb-2" />
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50 dark:divide-white/[0.03]">
@@ -447,8 +465,19 @@ export function CariClient({
                         <td className="py-3 pr-4 text-sm text-gray-500 dark:text-[#666]">
                           {formatDuration(a.assignedAt, a.returnedAt)}
                         </td>
-                        <td className="py-3 text-xs text-gray-400 dark:text-[#555]">
+                        <td className="py-3 pr-4 text-xs text-gray-400 dark:text-[#555]">
                           {a.notes ?? "—"}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <a
+                            href={`/api/assets/assignments/${a.id}/pdf`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-[#aaa] rounded inline-flex"
+                            title="PDF İndir"
+                          >
+                            <FileText size={14} />
+                          </a>
                         </td>
                       </tr>
                     ))}
@@ -702,7 +731,7 @@ export function CariClient({
                   </button>
                 </div>
               </>
-            ) : (
+            ) : bulkStep === "confirm" ? (
               <>
                 <h3 className="text-base font-semibold text-gray-900 dark:text-[#e5e5e5] mb-1">
                   Zimmet Onayı
@@ -741,6 +770,44 @@ export function CariClient({
                     className="flex-1 px-4 py-2 border border-gray-300 dark:border-white/[0.08] text-gray-700 dark:text-[#aaa] rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-white/[0.03] transition-colors"
                   >
                     ← Geri
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="text-center py-4">
+                  <div className="w-12 h-12 rounded-full bg-[#b6ff5a]/20 dark:bg-[#b6ff5a]/10 flex items-center justify-center mx-auto mb-3">
+                    <Check size={24} className="text-[#3d6b10] dark:text-[#b6ff5a]" />
+                  </div>
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-[#e5e5e5] mb-1">
+                    Zimmet Tamamlandı
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-[#666]">
+                    <span className="font-semibold text-gray-900 dark:text-[#e5e5e5]">
+                      {bulkSelectedIds.size} demirbaş
+                    </span>
+                    {" "}
+                    <span className="font-semibold text-[#3d6b10] dark:text-[#b6ff5a]">
+                      {employee.lastName}, {employee.firstName}
+                    </span>
+                    {"'a zimmetlendi."}
+                  </p>
+                </div>
+                <div className="flex gap-3 mt-6">
+                  <a
+                    href={`/api/employees/${employee.id}/assignments/pdf`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-[#b6ff5a] text-black rounded-lg text-sm font-medium hover:bg-[#9ee040] transition-colors"
+                  >
+                    <FileDown size={14} />
+                    PDF İndir
+                  </a>
+                  <button
+                    onClick={closeBulkModal}
+                    className="flex-1 px-4 py-2 border border-gray-300 dark:border-white/[0.08] text-gray-700 dark:text-[#aaa] rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-white/[0.03] transition-colors"
+                  >
+                    Kapat
                   </button>
                 </div>
               </>
